@@ -13,6 +13,10 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
     const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
     const appointments = [];
     let currentDate = '';
+    let isInDailySchedule = false;  // Flag to track if we're in the daily schedule section
+    
+    // Add pattern to detect the end of daily schedule
+    const scheduleEndPattern = /Medikamentenabgabe|Essenszeiten|Pausen|NA-Meeting/i;
     
     // Add invalid line patterns
     const invalidLinePatterns = [
@@ -54,12 +58,22 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
         return;
       }
 
-      // Check for date
+      // Check if we've reached the general information section
+      if (scheduleEndPattern.test(line)) {
+        isInDailySchedule = false;
+        return;
+      }
+
+      // Check for date - this also indicates we're in the daily schedule
       const dateMatch = line.match(datePattern);
       if (dateMatch) {
         currentDate = dateMatch[1];
+        isInDailySchedule = true;
         return;
       }
+
+      // Only process appointments if we're in the daily schedule section
+      if (!isInDailySchedule) return;
 
       const timeMatch = line.match(timePattern);
       // Inside the time matching block:

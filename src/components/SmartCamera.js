@@ -6,7 +6,6 @@ export function SmartCamera({ onImageCaptured }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(0);
-  const [hasFlash, setHasFlash] = useState(false);
 
   const startCamera = async () => {
     try {
@@ -18,10 +17,12 @@ export function SmartCamera({ onImageCaptured }) {
           advanced: [
             { focusMode: 'continuous' },
             { exposureMode: 'continuous' },
-            { torch: true },
             { whiteBalanceMode: 'continuous' },
-            { brightness: 1 }, // Increase brightness
-            { contrast: 1 } // Increase contrast
+            { brightness: 0.8 }, // Increase brightness
+            { contrast: 1.2 }, // Increase contrast
+            { sharpness: 2 },
+            { saturation: 1.2 },
+            { iso: 100 }
           ]
         }
       });
@@ -29,12 +30,53 @@ export function SmartCamera({ onImageCaptured }) {
       // Check if torch is supported
       const track = stream.getVideoTracks()[0];
       const capabilities = track.getCapabilities();
-      setHasFlash(capabilities.torch || false);
       
-      if (capabilities.torch) {
+        // Set optimal focus distance for document scanning
+        if (capabilities.focusDistance) {
         await track.applyConstraints({
-          advanced: [{ torch: true }]
+            focusDistance: 30, // Optimal distance for document scanning
+            focusMode: 'manual'
         });
+        }
+
+        // Set exposure for document scanning
+        if (capabilities.exposureTime) {
+        await track.applyConstraints({
+            exposureTime: 1000, // Faster exposure for better text capture
+            exposureMode: 'manual'
+        });
+        }
+
+        // Set white balance for document scanning
+        if (capabilities.whiteBalanceMode && capabilities.colorTemperature) {
+            await track.applyConstraints({
+            whiteBalanceMode: 'manual',
+            colorTemperature: 5500  // Daylight white balance (5500K is standard daylight)
+            });
+        }
+
+        // Set zoom for better detail if available
+        if (capabilities.zoom) {
+            await track.applyConstraints({
+            zoom: 1.5  // Slight zoom for better detail
+            });
+        }
+
+       // Use torch only if ambient light is low
+       if (capabilities.torch) {
+        try {
+          const imageCapture = new ImageCapture(track);
+          const photoCapabilities = await imageCapture.getPhotoCapabilities();
+          
+          // Only enable torch if light level is low
+          if (photoCapabilities.redEyeReduction) {
+            await track.applyConstraints({
+              advanced: [{ torch: true }]
+            });
+          }
+        } catch (torchErr) {
+          console.log('Torch error:', torchErr);
+        }
       }
 
       videoRef.current.srcObject = stream;
