@@ -18,7 +18,7 @@ export function SmartCamera({ onImageCaptured }) {
             { focusMode: 'continuous' },
             { exposureMode: 'continuous' },
             { whiteBalanceMode: 'continuous' },
-            { brightness: 0.8 }, // Increase brightness
+            { brightness: 1.2 }, // Increase brightness
             { contrast: 1.2 }, // Increase contrast
             { sharpness: 2 },
             { saturation: 1.2 },
@@ -55,12 +55,12 @@ export function SmartCamera({ onImageCaptured }) {
             });
         }
 
-        // Set zoom for better detail if available
-        if (capabilities.zoom) {
-            await track.applyConstraints({
-            zoom: 1.5  // Slight zoom for better detail
-            });
-        }
+        // // Set zoom for better detail if available
+        // if (capabilities.zoom) {
+        //     await track.applyConstraints({
+        //     zoom: 1.5  // Slight zoom for better detail
+        //     });
+        // }
 
        // Use torch only if ambient light is low
        if (capabilities.torch) {
@@ -145,17 +145,30 @@ export function SmartCamera({ onImageCaptured }) {
           className="w-full h-full object-cover"
           onCanPlay={() => videoRef.current.play()}
         />
-        {isProcessing && (
-          <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-            <div className="text-white text-center">
-              <div className="mb-2">Capturing ({Math.round(captureProgress)}%)</div>
-              <div className="w-48 h-2 bg-gray-700 rounded-full">
-                <div 
-                  className="h-full bg-green-500 rounded-full transition-all duration-200"
-                  style={{ width: `${captureProgress}%` }}
-                />
+        {isStreaming && (
+          <div className="absolute inset-0 pointer-events-none">
+            {/* Document border guide */}
+            <div className="absolute inset-4 border-2 border-white border-opacity-50 rounded-lg"></div>
+
+            {isProcessing ? (
+              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="text-white text-center">
+                  <div className="mb-2">Hold Steady - Capturing ({Math.round(captureProgress)}%)</div>
+                  <div className="w-48 h-2 bg-gray-700 rounded-full">
+                    <div 
+                      className="h-full bg-green-500 rounded-full transition-all duration-200"
+                      style={{ width: `${captureProgress}%` }}
+                    />
+                  </div>
+                </div>
               </div>
-            </div>
+            ) : (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <p className="text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
+                  Hold steady
+                </p>
+              </div>
+            )}
           </div>
         )}
       </div>
