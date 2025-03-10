@@ -23,7 +23,6 @@ export function SmartCamera({ onImageCaptured }) {
           facingMode: 'environment',
           width: { ideal: 3508 },  // A4 at 300 DPI
           height: { ideal: 2480 }, // A4 at 300 DPI
-          torch: true
         } 
       });
 
