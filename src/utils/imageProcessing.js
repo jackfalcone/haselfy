@@ -41,24 +41,13 @@ export async function processImages(images) {
         const ctx = canvas.getContext('2d');
         
         // First pass: optimize for printed text clarity
-        ctx.filter = 'contrast(1.7) brightness(1.1) saturate(0.1) blur(0px)';  // Higher contrast for printed text
+        ctx.filter = 'contrast(1.8) brightness(1.15) saturate(0) blur(0px)';  // Higher contrast for printed text
         ctx.drawImage(img, 0, 0);
         
         // Apply sharper kernel for printed text
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        applySharpness(imageData.data, canvas.width, canvas.height, 1.4);  // Increased sharpness for crisp letters
+        applySharpness(imageData.data, canvas.width, canvas.height, 1.6);  // Increased sharpness for crisp letters
         ctx.putImageData(imageData, 0, 0);
-        
-        // Apply color temperature adjustment (4500K - slightly cool)
-        ctx.fillStyle = 'rgba(184, 205, 255, 0.1)'; // Slight blue tint
-        ctx.globalCompositeOperation = 'multiply';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-        ctx.globalCompositeOperation = 'source-over';
-        
-        // Second pass: slightly darken the right side (location area)
-        ctx.filter = 'brightness(0.95)';
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
-        ctx.fillRect(canvas.width * 0.7, 0, canvas.width * 0.3, canvas.height);
         
         // Convert to binary with different thresholds for different regions
         // Simplified thresholds optimized for printed text
@@ -69,12 +58,10 @@ export async function processImages(images) {
             const i = (y * canvas.width + x) * 4;
             const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
             
-            let threshold = 135; // Lower base threshold for consistent printed text
+            let threshold = 140; // Lower base threshold for consistent printed text
             if (x > canvas.width * 0.7) { // Location area
-              threshold = 132; // More lenient for room numbers
-            } else if (x > canvas.width * 0.4) { // Time/description area
-              threshold = 134; // Adjusted for main content
-            }
+              threshold = 135; // More lenient for room numbers
+            } 
             
             const value = avg > threshold ? 255 : 0;
             data[i] = data[i + 1] = data[i + 2] = value;
