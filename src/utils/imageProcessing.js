@@ -31,7 +31,7 @@ function applySharpness(data, width, height, amount) {
 export async function processImages(images) {
   try {
     const processedImages = await Promise.all(
-      images.map(async (imgData) => {  // Changed from imageData to imgData
+      images.map(async (imgData) => {
         const blob = await fetch(imgData).then(r => r.blob());
         
         const canvas = document.createElement('canvas');
@@ -40,57 +40,49 @@ export async function processImages(images) {
         canvas.height = img.height;
         const ctx = canvas.getContext('2d');
         
-        // First pass: optimize for printed text clarity
-        ctx.filter = 'contrast(1.8) brightness(1.15) saturate(0) blur(0px)';  // Higher contrast for printed text
+        // Optimize for text clarity
+        ctx.filter = 'contrast(1.8) brightness(1.15) saturate(0) blur(0px)';
         ctx.drawImage(img, 0, 0);
         
-        // Apply sharper kernel for printed text
+        // Apply sharpness
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        applySharpness(imageData.data, canvas.width, canvas.height, 1.6);  // Increased sharpness for crisp letters
+        applySharpness(imageData.data, canvas.width, canvas.height, 1.6);
         ctx.putImageData(imageData, 0, 0);
         
-        // Convert to binary with different thresholds for different regions
-        // Simplified thresholds optimized for printed text
+        // Convert to binary
         const pixelData = ctx.getImageData(0, 0, canvas.width, canvas.height);
         const data = pixelData.data;
         for (let y = 0; y < canvas.height; y++) {
           for (let x = 0; x < canvas.width; x++) {
             const i = (y * canvas.width + x) * 4;
             const avg = (data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114);
-            
-            let threshold = 140; // Lower base threshold for consistent printed text
-            if (x > canvas.width * 0.7) { // Location area
-              threshold = 135; // More lenient for room numbers
-            } 
-            
+            const threshold = x > canvas.width * 0.7 ? 135 : 140;
             const value = avg > threshold ? 255 : 0;
             data[i] = data[i + 1] = data[i + 2] = value;
           }
         }
         ctx.putImageData(pixelData, 0, 0);
         
-        // Rest of the processing remains the same
         const enhancedBlob = await new Promise(resolve => {
           canvas.toBlob(resolve, 'image/png', 1.0);
         });
         
         const compressedFile = await imageCompression(enhancedBlob, {
-          maxSizeMB: 4,
-          maxWidthOrHeight: 3840,
+          maxSizeMB: 2,
+          maxWidthOrHeight: 1920, // Reduced from 3840
           useWebWorker: true,
           fileType: 'png',
-          initialQuality: 1,
-          alwaysKeepResolution: true,
-          onProgress: () => {}
+          initialQuality: 0.9, // Slightly reduced quality
+          alwaysKeepResolution: false // Allow resizing
         });
 
         return URL.createObjectURL(compressedFile);
       })
     );
 
-    return processedImages[0];
+    return processedImages;
   } catch (error) {
     console.error('Image processing failed:', error);
-    return images[0];
+    return [images[0]];
   }
 }
