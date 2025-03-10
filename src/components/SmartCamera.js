@@ -6,78 +6,23 @@ export function SmartCamera({ onImageCaptured }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(0);
+    const [debugLog, setDebugLog] = useState([]);
 
+    const logDebug = (message, data) => {
+        console.log(message, data);
+        setDebugLog(prev => [...prev, `${message}: ${JSON.stringify(data, null, 2)}`]);
+    }
+      
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment',
-          width: { ideal: 3840 }, // Increased to 4K
-          height: { ideal: 2160 },
-          advanced: [
-            { focusMode: 'continuous' },
-            { exposureMode: 'continuous' },
-            { whiteBalanceMode: 'continuous' },
-            { brightness: 1.2 }, // Increase brightness
-            { contrast: 1.2 }, // Increase contrast
-            { sharpness: 2 },
-            { saturation: 1.2 },
-            { iso: 100 }
-          ]
-        }
+          width: { ideal: 3508 },  // A4 at 300 DPI
+          height: { ideal: 2480 }, // A4 at 300 DPI
+          torch: true
+        } 
       });
-      
-      // Check if torch is supported
-      const track = stream.getVideoTracks()[0];
-      const capabilities = track.getCapabilities();
-      
-        // Set optimal focus distance for document scanning
-        if (capabilities.focusDistance) {
-        await track.applyConstraints({
-            focusDistance: 30, // Optimal distance for document scanning
-            focusMode: 'manual'
-        });
-        }
-
-        // Set exposure for document scanning
-        if (capabilities.exposureTime) {
-        await track.applyConstraints({
-            exposureTime: 1000, // Faster exposure for better text capture
-            exposureMode: 'manual'
-        });
-        }
-
-        // Set white balance for document scanning
-        if (capabilities.whiteBalanceMode && capabilities.colorTemperature) {
-            await track.applyConstraints({
-            whiteBalanceMode: 'manual',
-            colorTemperature: 5500  // Daylight white balance (5500K is standard daylight)
-            });
-        }
-
-        // // Set zoom for better detail if available
-        // if (capabilities.zoom) {
-        //     await track.applyConstraints({
-        //     zoom: 1.5  // Slight zoom for better detail
-        //     });
-        // }
-
-       // Use torch only if ambient light is low
-       if (capabilities.torch) {
-        try {
-          const imageCapture = new ImageCapture(track);
-          const photoCapabilities = await imageCapture.getPhotoCapabilities();
-          
-          // Only enable torch if light level is low
-          if (photoCapabilities.redEyeReduction) {
-            await track.applyConstraints({
-              advanced: [{ torch: true }]
-            });
-          }
-        } catch (torchErr) {
-          console.log('Torch error:', torchErr);
-        }
-      }
 
       videoRef.current.srcObject = stream;
       setIsStreaming(true);
@@ -95,11 +40,16 @@ export function SmartCamera({ onImageCaptured }) {
     }
   };
 
+  // Add new state at the top with other states
+  const [debugImages, setDebugImages] = useState({ raw: null, processed: null });
+
+  // Modify the captureImage function
   const captureImage = async () => {
     if (!videoRef.current || isProcessing) return;
 
     setIsProcessing(true);
     setCaptureProgress(0);
+    setDebugImages({ raw: null, processed: null });
     
     try {
       const canvas = document.createElement('canvas');
@@ -110,7 +60,14 @@ export function SmartCamera({ onImageCaptured }) {
       const images = [];
       const totalShots = 5;
       
-      for (let i = 0; i < totalShots; i++) {
+      // Save the first shot for debugging
+      ctx.drawImage(videoRef.current, 0, 0);
+      const firstShot = canvas.toDataURL('image/png', 1.0);
+      setDebugImages(prev => ({ ...prev, raw: firstShot }));
+      images.push(firstShot);
+      
+      // Continue with remaining shots
+      for (let i = 1; i < totalShots; i++) {
         await new Promise(resolve => setTimeout(resolve, 300));
         ctx.drawImage(videoRef.current, 0, 0);
         images.push(canvas.toDataURL('image/png', 1.0));
@@ -118,8 +75,9 @@ export function SmartCamera({ onImageCaptured }) {
       }
       
       const enhancedImage = await processImages(images);
+      setDebugImages(prev => ({ ...prev, processed: enhancedImage }));
       onImageCaptured(enhancedImage);
-      stopCamera(); // Stop camera after successful capture
+      stopCamera();
     } catch (error) {
       console.error('Error capturing image:', error);
     } finally {
@@ -128,21 +86,15 @@ export function SmartCamera({ onImageCaptured }) {
     }
   };
 
-  // Update useEffect to use the new stopCamera function
-  useEffect(() => {
-    return () => {
-      stopCamera();
-    };
-  }, []);
-
+  // Add this section at the bottom of the return statement, after the buttons
   return (
     <div className="flex flex-col items-center gap-4">
-      <div className="relative w-full max-w-md aspect-[3/4] bg-gray-100 rounded overflow-hidden">
+      <div className="relative w-full max-w-md aspect-[1/1.414] bg-gray-100 rounded overflow-hidden">
         <video
           ref={videoRef}
           autoPlay
           playsInline
-          className="w-full h-full object-cover"
+          className="absolute inset-0 w-full h-full object-cover"
           onCanPlay={() => videoRef.current.play()}
         />
         {isStreaming && (
@@ -193,6 +145,35 @@ export function SmartCamera({ onImageCaptured }) {
           {isProcessing ? 'Processing...' : 'Capture'}
         </button>
       )}
+      
+      {(debugImages.raw || debugImages.processed) && (
+        <div className="w-full max-w-md space-y-4 mt-4">
+          {debugImages.raw && (
+            <div>
+              <h3 className="text-sm font-medium mb-2">Raw Capture:</h3>
+              <img src={debugImages.raw} alt="Raw capture" className="w-full rounded-lg" />
+            </div>
+          )}
+          {debugImages.processed && (
+            <div>
+              <h3 className="text-sm font-medium mb-2">Processed Result:</h3>
+              <img src={debugImages.processed} alt="Processed result" className="w-full rounded-lg" />
+            </div>
+          )}
+        </div>
+      )}
+
+// Add this to your JSX, after the debug images
+  {debugLog.length > 0 && (
+    <div className="w-full max-w-md mt-4 p-2 bg-gray-100 rounded">
+      <h3 className="text-sm font-medium mb-2">Debug Log:</h3>
+      <pre className="text-xs overflow-auto max-h-40">
+        {debugLog.join('\n')}
+      </pre>
+    </div>
+  )}
+
+      
     </div>
   );
 }

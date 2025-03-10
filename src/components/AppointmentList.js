@@ -197,9 +197,34 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   };
 
   // Update the render section:
+  // Add this function at the top with other functions
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text)
+      .catch(err => console.error('Failed to copy text:', err));
+  };
+
+  // In the return statement, add this before the appointments list
   return (
     <div className="mt-6">
       <h2 className="text-xl font-semibold mb-4">Detected Appointments</h2>
+      
+      {extractedText && (
+        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
+          <div className="flex justify-between items-center mb-2">
+            <h3 className="text-sm font-medium text-gray-700">Extracted Text:</h3>
+            <button
+              onClick={() => copyToClipboard(extractedText)}
+              className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+            >
+              Copy Text
+            </button>
+          </div>
+          <pre className="text-xs overflow-auto max-h-60 whitespace-pre-wrap bg-white p-3 rounded border">
+            {extractedText}
+          </pre>
+        </div>
+      )}
+
       {parsedAppointments.length > 0 ? (
         <div className="space-y-6">
           {Object.entries(groupAppointmentsByDate(parsedAppointments)).map(([date, dayAppointments]) => (
