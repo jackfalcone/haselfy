@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { dictionaries } from '../data/dictionaries';
 
 function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   const [parsedAppointments, setParsedAppointments] = useState([]);
@@ -10,170 +11,88 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   };
 
   const parseAppointments = (text) => {
-    const lines = text.split('\n').map(line => line.trim()).filter(Boolean);
     const appointments = [];
-    let currentDate = '';
-    let isInDailySchedule = false;  // Flag to track if we're in the daily schedule section
+    let currentDate = null;
     
-    // Add pattern to detect the end of daily schedule
-    const scheduleEndPattern = /Medikamentenabgabe|Essenszeiten|Pausen|NA-Meeting/i;
+    // Ensure text is properly formatted for processing
+    const textContent = Array.isArray(text) ? text.join('\n') : String(text);
     
-    // Add invalid line patterns
-    const invalidLinePatterns = [
-      /^\d{2}\.\d{2}\.\d{4}\s*\/\s*-/, // Matches date format like "28.02.2025 / -"
-      /^CIM\s*$/,                       // Matches standalone CIM
-      /^\s*:\s*['`]\s*\d{2}\.\d{2}\.\d{4}/ // Matches timestamp-like entries
-    ];
-
-    // Enhanced patterns
-    const datePattern = /(?:Mo|Di|Mi|Do|Fr|Sa|So)\.\s*(\d{2}\.\d{2}\.\d{4})/i;
-    const timePattern = /(\d{1,2}:\d{2})\s*(?:-\s*(\d{1,2}:\d{2})|)/;
-    const endTimePattern = /(?:^|\s)(\d{1,2}:\d{2})|(?:^|\s)(\d{4})/;
-    const durationPattern = /(?:^|\s)(\d{2,3})(?:['']|\s*min|\s*')/i;
-    const locationPatterns = [
-      /GR\s*Matterhorn/i,
-      /Arztzimmer/i,
-      /Schulungsraum/i,
-      /Station\s*\d+/i,
-      /Eingangshalle(?:\s+Hauptgebäude)?/i,
-      /Auditorium(?:_|\s*)Go/i,
-      /Sitzungszimmer\s+Venus/i,
-      /Soz\.-Dienstzimmer\s*(?:\(Fr\.\s*Widmer\))?/i,
-      /Ergotherapieraum/i,
-      /TZ\s*\d+\s*(?:\(Treffpunkt\s+Eingangshalle(?:\s+Hauptgebäude)?\))?/i
-    ];
-
-    const cleanDescription = (text) => {
-      return text
-        .replace(/^[Z_\s]+/, '')        // Remove leading Z and underscores
-        .replace(/^\d{1,2}:\d{2}\s*/, '') // Remove leading time
-        .replace(/\s+/g, ' ')           // Normalize spaces
-        .replace(/['']/g, "'")          // Normalize quotes
-        .trim();
-    };
+    const lines = textContent.split('\n')
+      .map(line => line.trim())
+      .filter(Boolean);
 
     lines.forEach(line => {
-      // Skip invalid lines
-      if (invalidLinePatterns.some(pattern => pattern.test(line))) {
-        return;
-      }
-
-      // Check if we've reached the general information section
-      if (scheduleEndPattern.test(line)) {
-        isInDailySchedule = false;
-        return;
-      }
-
-      // Check for date - this also indicates we're in the daily schedule
-      const dateMatch = line.match(datePattern);
+      // Date pattern
+      const dateMatch = line.match(/(?:Mo|Di|Mi|Do|Fr|Sa|So)\.\s*(\d{2})\.(\d{2})\.(\d{4})/);
       if (dateMatch) {
-        currentDate = dateMatch[1];
-        isInDailySchedule = true;
+        currentDate = `${dateMatch[1]}.${dateMatch[2]}.${dateMatch[3]}`;
         return;
       }
 
-      // Only process appointments if we're in the daily schedule section
-      if (!isInDailySchedule) return;
+      // Time pattern (handles both ranges and single times)
+      const timeMatch = line.match(/^(\d{1,2}[:\.]\d{2})(?:\s*-\s*(\d{1,2}[:\.]\d{2})|$)/);
+      if (timeMatch && currentDate) {
+        const startTime = timeMatch[1].replace('.', ':');
+        let endTime = timeMatch[2]?.replace('.', ':');
+        
+        let remainingText = line.slice(timeMatch[0].length).trim();
 
-      const timeMatch = line.match(timePattern);
-      // Inside the time matching block:
-      if (timeMatch) {
-          const startTime = timeMatch[1];
-          let endTime = timeMatch[2];
-          let location = '';
-          let description = cleanDescription(line);
-      
-          // Look for explicit end time in description first
-          const explicitEndMatch = description.match(endTimePattern);
-          if (explicitEndMatch) {
-              if (explicitEndMatch[1]) {
-                  endTime = explicitEndMatch[1];
-              } else if (explicitEndMatch[2]) {
-                  const time = explicitEndMatch[2];
-                  endTime = `${time.slice(0,2)}:${time.slice(2)}`;
-              }
-              description = description.replace(explicitEndMatch[0], '').trim();
-          }
-          
-          // If no end time, look for duration
-          if (!endTime || endTime === startTime) {
-              const durationMatch = description.match(durationPattern);
-              if (durationMatch) {
-                  const duration = parseInt(durationMatch[1]);
-                  const [hours, minutes] = startTime.split(':').map(Number);
-                  const endDate = new Date(2000, 0, 1, hours, minutes);
-                  endDate.setMinutes(endDate.getMinutes() + duration);
-                  endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
-                  description = description.replace(durationMatch[0], '').trim();
-              }
-          }
+        // Extract location
+        let location = '';
+        const locations = dictionaries.find(d => d.type === 'locations')?.dict || [];
+        const foundLocation = locations.find(loc => remainingText.includes(loc));
+        if (foundLocation) {
+          location = foundLocation;
+          remainingText = remainingText.replace(foundLocation, '').trim();
+        }
 
-          // Extract location and clean up description
-          description = description
-              .replace(timePattern, '')
-              .replace(/\s*-\s*$/, '')
-              .replace(/\s+/g, ' ')
-              .replace(/^\s*-\s*/, '')
-              .replace(/^[;—]+\s*/, '')
-              .replace(/\s*[;.]+\s*$/, '')
-              .replace(/\s*\([^)]*\)\s*$/, '')
-              .replace(/\s*\(Treffpunkt[^)]*\)/, '')
-              .replace(/\s*Hauptgebäude\)?/, '')
-              .replace(/\|/g, 'I')
-              .replace(/^(?:RE|EZEE|Ba)\s+/, '') // Remove specific prefixes
-              .trim();
-      
-          if (!endTime) {
-              const [hours, minutes] = startTime.split(':').map(Number);
-              const endDate = new Date(2000, 0, 1, hours, minutes);
-              endDate.setMinutes(endDate.getMinutes() + 30);
-              endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+        // Improved organizer pattern
+        // Extract organizers
+        const organizers = [];
+        const namePattern = /(?:Dr\.\s*(?:med\.)?\s*)?(?:[A-ZÄÖÜ]\.\s*[A-Za-zäöüß-]+|[A-ZÄÖÜ][a-zäöüß]+(?:\s+[A-ZÄÖÜ][a-zäöüß-]+)*)/g;
+        let nameMatch;
+        while ((nameMatch = namePattern.exec(remainingText)) !== null) {
+          const name = nameMatch[0].trim();
+          if (name.length > 2) {
+            organizers.push(name);
+            remainingText = remainingText.replace(name, '').trim();
           }
+        }
 
-          const organizerPattern = /(?:Dr\.\s*med\.)?\s*[A-Z]\.\s*[A-Za-zäöüß]+/;
-      
-          // In the time matching block where appointments are created:
-          if (startTime && description) {
-              // Extract location
-              let location = '';
-              let organizer = '';
-              
-              // Check for location matches
-              for (const pattern of locationPatterns) {
-                  const match = description.match(pattern);
-                  if (match) {
-                      location = match[0];
-                      description = description.replace(match[0], '').trim();
-                      break;
-                  }
-              }
-              
-              // Extract organizer
-              const organizerMatch = description.match(organizerPattern);
-              if (organizerMatch) {
-                  organizer = organizerMatch[0];
-                  description = description.replace(organizerMatch[0], '').trim();
-              }
-      
-              const [year, month, day] = currentDate.split('.').reverse();
-              appointments.push({
-                  startDate: parseDateTime(currentDate, startTime),
-                  endDate: parseDateTime(currentDate, endTime),
-                  description,
-                  location,
-                  organizer,
-                  rawText: line.trim()
-              });
-          }
+        // Clean up description
+        const description = remainingText
+          .replace(/\s+/g, ' ')
+          .replace(/^\s*[-:]\s*/, '')
+          .trim();
+
+        // Handle end time
+        if (!endTime && startTime) {
+          const [hours, minutes] = startTime.split(':').map(Number);
+          const endDate = new Date(2000, 0, 1, hours, minutes);
+          endDate.setMinutes(endDate.getMinutes() + 30);
+          endTime = `${endDate.getHours().toString().padStart(2, '0')}:${endDate.getMinutes().toString().padStart(2, '0')}`;
+        }
+
+        // Create appointment if we have the minimum required data
+        if (startTime && (description || location)) {
+          appointments.push({
+            startDate: parseDateTime(currentDate, startTime),
+            endDate: parseDateTime(currentDate, endTime),
+            description,
+            location,
+            organizers,
+            rawText: line
+          });
+        }
       }
     });
-
-    return appointments;
+    
+    return appointments.sort((a, b) => a.startDate - b.startDate);
   };
 
   useEffect(() => {
     if (extractedText) {
-      const appointments = parseAppointments(extractedText);
+      const appointments = parseAppointments(extractedText.text);
       setParsedAppointments(appointments);
       onAppointmentsProcessed(appointments);
     }
@@ -213,14 +132,14 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
           <div className="flex justify-between items-center mb-2">
             <h3 className="text-sm font-medium text-gray-700">Extracted Text:</h3>
             <button
-              onClick={() => copyToClipboard(extractedText)}
+              onClick={() => copyToClipboard(extractedText.text)}
               className="px-3 py-1 text-xs bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
             >
               Copy Text
             </button>
           </div>
           <pre className="text-xs overflow-auto max-h-60 whitespace-pre-wrap bg-white p-3 rounded border">
-            {extractedText}
+            {extractedText.text}
           </pre>
         </div>
       )}
@@ -252,9 +171,9 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
                       </div>
                       <p className="text-gray-700">
                         {appointment.description}
-                        {appointment.organizer && (
+                        {appointment.organizers && appointment.organizers.length > 0 && (
                           <span className="ml-2 text-sm text-purple-600 bg-purple-50 px-2 py-1 rounded">
-                            {appointment.organizer}
+                            {appointment.organizers.join(', ')}
                           </span>
                         )}
                       </p>
