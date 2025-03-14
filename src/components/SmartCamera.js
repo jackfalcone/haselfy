@@ -1,6 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { processImages } from '../utils/imageProcessing';
-import { weekdays, organizers, locations, expectedWords } from '../data/dictionaries';
+import { isImageSharp, isBrightnessGood, isMotionBlurLow } from '../utils/imageQuality';
 
 export function SmartCamera({ onImageCaptured }) {
   const videoRef = useRef(null);
@@ -15,13 +15,8 @@ export function SmartCamera({ onImageCaptured }) {
   const logDebug = (message, data) => {
     console.log(message, data);
     setDebugLog(prev => [...prev, { message, data, timestamp: new Date().toISOString() }]);
-    // Remove unused setDebugImages
-    // if (data && Array.isArray(data) && data.some(url => url.startsWith('blob:'))) {
-    //     setDebugImages(data);
-    // }
-  }
+  };
 
-      
   const startCamera = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -47,68 +42,100 @@ export function SmartCamera({ onImageCaptured }) {
       setIsStreaming(false);
     }
   };
-  
-  // Modify the captureImage function
-  const captureImage = async () => {
-    if (!videoRef.current || isProcessing) return;
 
+  const handleImage = async (imageBlob) => {
     setIsProcessing(true);
     setCaptureProgress(0);
-    setProcessingPhase('Capturing images...');
-    
-    try {
-      const canvas = document.createElement('canvas');
-      canvas.width = videoRef.current.videoWidth;
-      canvas.height = videoRef.current.videoHeight;
-      const ctx = canvas.getContext('2d', { willReadFrequently: true });
-      ctx.drawImage(videoRef.current, 0, 0);
+    setProcessingPhase('Processing image...');
 
-      const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-      const image = URL.createObjectURL(blob);
-        
-      setProcessingPhase('Processing images...');
-      const processedImage = await processImages(image);
+    try {
+      const imageUrl = URL.createObjectURL(imageBlob);
+
+      setProcessingPhase('Checking image quality...');
       
-      setProcessingPhase('Performing OCR...');
-      logDebug('processed Image', processedImage);
-      onImageCaptured(processedImage);
-      stopCamera();
+      const qualityChecks = await Promise.all([
+        isImageSharp(imageUrl),
+        isBrightnessGood(imageUrl),
+        isMotionBlurLow(imageUrl)
+      ]);
+
+      const [sharpness, brightness, motionBlur] = qualityChecks;
+
+      if (!sharpness || !brightness || !motionBlur) {
+        setProcessingPhase('Image quality issues detected:');
+
+        const qualityIssues = [];
+        if (!sharpness) {
+          qualityIssues.push('Image is unsharp');
+        }
+        if (!brightness) {
+          qualityIssues.push('Image is too dark');
+        }
+        if (!motionBlur) {
+          qualityIssues.push('Image has motion blur');
+        }
+
+        setProcessingPhase(`Quality issues: ${qualityIssues.join(', ')}`);
+        setIsProcessing(true);  // Keep processing state true to show message
+
+        return {
+          success: false,
+          qualityIssues
+        }
+      };
+
+      setProcessingPhase('Processing image...');
+      const processedImage = await processImages(imageUrl);
+      
+      logDebug('Original Image', [imageUrl]);
+      if ( processedImage.variations &&  processedImage.variations.length > 0) {
+        logDebug('Processing Variations',  processedImage.variations.map(v => ({
+          name: v.name,
+          image: v.url
+        })));
+      }
+      logDebug('Final Result', [ processedImage.final]);
+
+      onImageCaptured(processedImage.final);
+
+      if (videoRef.current?.srcObject) {
+        stopCamera();
+      }
+      return { success: true };
     } catch (error) {
-      console.error('Error capturing image:', error);
-      setProcessingPhase('Error occurred');
-    } finally {
-      setIsProcessing(false);
-      setCaptureProgress(0);
-      setProcessingPhase('');
+      console.error('Error processing image:', error);
+      setProcessingPhase('An unexpected error occurred');
+      setIsProcessing(true);
+      return { success: false, issues: ['Technical error occurred'] };
     }
+  };
+  
+  const captureImage = async () => {
+    if (!videoRef.current || isProcessing) return;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = videoRef.current.videoWidth;
+    canvas.height = videoRef.current.videoHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(videoRef.current, 0, 0);
+
+    canvas.toBlob(async (blob) => {
+      const result = await handleImage(blob);
+
+      if (!result.success) {
+        setProcessingPhase(`Please try again. ${result.qualityIssues.join(', ')}`);
+      }
+    }, 'image/png');
   };
 
   const handleImageUpload = async (event) => {
     const file = event.target.files[0];
     if (file) {
-      try {
-        const imageUrl = URL.createObjectURL(file);
-        setProcessingPhase('Processing image...');
-
-        const result = await processImages([imageUrl]);
-        logDebug('Original Image', [imageUrl]);
-        if (result.variations && result.variations.length > 0) {
-          logDebug('Processing Variations', result.variations.map(v => ({
-            name: v.name,
-            image: v.url
-          })));
-        }
-        logDebug('Final Result', [result.final]);
-        onImageCaptured(result.final);
-      } catch (error) {
-        console.error('Error processing image:', error);
-        setProcessingPhase('Error occurred');
-      } finally {
-        setIsProcessing(false);
-        setCaptureProgress(0);
-        setProcessingPhase('');
+      const result = await handleImage(file);
+      if (!result.success) {
+        setProcessingPhase(`Please try again. ${result.qualityIssues.join(', ')}`);
       }
-    }
+    };
   };
 
   // Update the processing UI in the return statement
@@ -123,30 +150,33 @@ export function SmartCamera({ onImageCaptured }) {
           className="absolute inset-0 w-full h-full object-cover"
           onCanPlay={() => videoRef.current.play()}
         />
-        {isStreaming && (
-          <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none">
+          {isStreaming && (
             <div className="absolute inset-4 border-2 border-white border-opacity-50 rounded-lg"></div>
-            {isProcessing ? (
-              <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-                <div className="text-white text-center">
-                  <div className="mb-2">{processingPhase}</div>
+          )}
+          {isProcessing && (
+            <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+              <div className="text-white text-center p-4">
+                <div className="mb-2 text-lg">{processingPhase}</div>
+                {processingPhase === 'Processing image...' && (
                   <div className="w-48 h-2 bg-gray-700 rounded-full">
                     <div 
                       className="h-full bg-green-500 rounded-full transition-all duration-200"
-                      style={{ width: `${processingPhase === 'Capturing images...'}%` }}
+                      style={{ width: `${captureProgress}%` }}
                     />
                   </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <div className="absolute inset-0 flex items-center justify-center">
-                <p className="text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
-                  Hold steady
-                </p>
-              </div>
-            )}
-          </div>
-        )}
+            </div>
+          )}
+          {isStreaming && !isProcessing && (
+            <div className="absolute inset-0 flex items-center justify-center">
+              <p className="text-white text-sm bg-black bg-opacity-50 px-3 py-1 rounded">
+                Hold steady
+              </p>
+            </div>
+          )}
+        </div>
       </div>
       
       {/* Controls */}
