@@ -1,5 +1,5 @@
 import React, { useRef, useState, useEffect } from 'react';
-import { processImages } from '../utils/imageProcessing';
+import { processImage } from '../utils/imageProcessing';
 import { isImageSharp, isBrightnessGood, isMotionBlurLow } from '../utils/imageQuality';
 
 export function SmartCamera({ onImageCaptured }) {
@@ -61,17 +61,20 @@ export function SmartCamera({ onImageCaptured }) {
 
       const [sharpness, brightness, motionBlur] = qualityChecks;
 
-      if (!sharpness || !brightness || !motionBlur) {
+      console.log('Quality checks:');
+      console.log(qualityChecks);
+
+      if (!sharpness.isSharp || !brightness.isGood || !motionBlur.isNotBlurred) {
         setProcessingPhase('Image quality issues detected:');
 
         const qualityIssues = [];
-        if (!sharpness) {
+        if (!sharpness.isSharp) {
           qualityIssues.push('Image is unsharp');
         }
-        if (!brightness) {
+        if (!brightness.isGood) {
           qualityIssues.push('Image is too dark');
         }
-        if (!motionBlur) {
+        if (!motionBlur.isNotBlurred) {
           qualityIssues.push('Image has motion blur');
         }
 
@@ -85,7 +88,7 @@ export function SmartCamera({ onImageCaptured }) {
       };
 
       setProcessingPhase('Processing image...');
-      const processedImage = await processImages(imageUrl);
+      const processedImage = await processImage(imageUrl, brightness);
       
       logDebug('Original Image', [imageUrl]);
       if ( processedImage.variations &&  processedImage.variations.length > 0) {

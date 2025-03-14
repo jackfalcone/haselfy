@@ -40,13 +40,13 @@ function applySimpleThreshold(data, threshold) {
   }
 }
 
-export async function processImages(images) {
+export async function processImage(imageUrl, brightness) {
   try {
     console.log('Starting image processing...');
-    const blob = await fetch(images[0]).then(r => r.blob());
+    const blob = await fetch(imageUrl).then(r => r.blob());
     const img = await createImageBitmap(blob);
 
-    const variations = [
+    let variations = [
       {
         name: 'standard',
         contrast: 1.8,
@@ -85,6 +85,19 @@ export async function processImages(images) {
         gamma: 1.1
       }
     ];
+
+    if (brightness.darkRatio > 0.15) {
+      variations = variations.filter(v => v.name !== 'highLight');
+    }
+
+    if (brightness.brightRatio > 0.15) {
+      variations = variations.filter(v => v.name !== 'lowLight');
+    }
+
+    if (brightness.darkRatio < 0.08 && brightness.brightRatio < 0.08) {
+      variations = variations.filter(v => !['lowLight', 'highLight'].includes(v.name));
+    }
+
 
     const debugImages = [];
     const processedVariations = await Promise.all(
@@ -161,6 +174,9 @@ export async function processImages(images) {
     
   } catch (error) {
     console.error('Image processing failed:', error);
-    return [images[0]];
+    return {
+      final: imageUrl,
+      variations: []
+    };
   }
 }

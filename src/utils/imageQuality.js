@@ -49,7 +49,11 @@ export const isImageSharp = async (imageUrl) => {
   }
   
   const sharpnessScore = sobelSum / (width * height);
-  return sharpnessScore > 30; // Adjusted threshold based on Sobel values
+
+  return {
+    isSharp: sharpnessScore >20,
+    sharpnessScore
+  }
 };
 
 export const isBrightnessGood = async (imageUrl) => {
@@ -80,7 +84,11 @@ export const isBrightnessGood = async (imageUrl) => {
   const darkRatio = darkPixels / pixelCount;
   const brightRatio = brightPixels / pixelCount;
   
-  return darkRatio < 0.15 && brightRatio < 0.15; // Max 15% too dark or too bright
+  return {
+    isGood: darkRatio < 0.15 && brightRatio < 0.15,
+    darkRatio,
+    brightRatio
+  }
 };
 
 export const isMotionBlurLow = async (imageUrl) => {
@@ -116,7 +124,10 @@ export const isMotionBlurLow = async (imageUrl) => {
   const totalPixels = (width - 2) * (height - 2);
   const blurScore = Math.min(horizontalBlur, verticalBlur) / totalPixels;
   
-  return blurScore > 15; // Adjusted threshold for motion blur detection
+  return {
+    isNotBlurred: blurScore < 15,
+    blurScore
+  }
 };
   
   
