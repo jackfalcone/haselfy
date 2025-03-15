@@ -74,26 +74,26 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
         threshold: 135
       },
       {
-        name: 'lowLight',
-        contrast: 2.5,
-        brightness: 1.4,
-        sharpness: 1.4,
-        threshold: 120
+        name: 'lowLight', // Enhances dark images
+        contrast: 2.2,
+        brightness: 1.3,
+        sharpness: 1.5,
+        threshold: 125
       },
       {
-        name: 'highLight',
-        contrast: 1.6,
-        brightness: 0.9,
+        name: 'highLight', // Enhances bright images
+        contrast: 1.8,
+        brightness: 0.85,
         sharpness: 1.7,
-        threshold: 155
+        threshold: 145
       },
       {
         name: 'shadow',
-        contrast: 2,
-        brightness: 1.2,
-        sharpness: 1.5,
+        contrast: 1.9,
+        brightness: 1.15,
+        sharpness: 1.6,
         threshold: 130,
-        gamma: 1.2
+        gamma: 1.15
       },
       {
         name: 'text',
@@ -114,22 +114,18 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
       }
     ];
 
-    if (brightness.darkRatio > 0.15) {
-      variations = variations.filter(v => v.name !== 'highLight');
-    }
-
-    if (brightness.brightRatio > 0.15) {
+    // Remove lowLight variant for brighter images
+    if (brightness.brightnessScore > 0.60) {
       variations = variations.filter(v => v.name !== 'lowLight');
     }
-
-    if (brightness.darkRatio < 0.08 && brightness.brightRatio < 0.08) {
-      variations = variations.filter(v => !['lowLight', 'highLight'].includes(v.name));
+    // Remove highLight variant for darker images
+    if (brightness.brightnessScore < 0.65) {
+      variations = variations.filter(v => v.name !== 'highLight');
     }
 
     if (!torchEnabled) {
       variations = variations.filter(v => v.name !== 'flashCorrection')
     }
-
 
     const debugImages = [];
     const processedVariations = await Promise.all(

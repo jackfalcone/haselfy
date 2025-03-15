@@ -80,9 +80,6 @@ export function SmartCamera({ onImageCaptured }) {
 
       const [sharpness, brightness, motionBlur] = qualityChecks;
 
-      console.log('Quality checks:');
-      console.log(qualityChecks);
-
       if (!sharpness.isSharp || !brightness.isGood || !motionBlur.isNotBlurred) {
         setProcessingPhase('Image quality issues detected:');
 
@@ -91,7 +88,12 @@ export function SmartCamera({ onImageCaptured }) {
           qualityIssues.push('Image is unsharp');
         }
         if (!brightness.isGood) {
-          qualityIssues.push('Image is too dark');
+          if (brightness.brightnessScore < .25) {
+            qualityIssues.push('Image is too dark');
+          }
+          if (brightness.brightnessScore > .75) {
+            qualityIssues.push('Image is too bright');
+          }
         }
         if (!motionBlur.isNotBlurred) {
           qualityIssues.push('Image has motion blur');
@@ -108,15 +110,16 @@ export function SmartCamera({ onImageCaptured }) {
 
       setProcessingPhase('Processing image...');
       const processedImage = await processImage(imageUrl, brightness, torchEnabled);
-      
+
       logDebug('Original Image', [imageUrl]);
+      logDebug('Quality Checks', qualityChecks);
       if ( processedImage.variations &&  processedImage.variations.length > 0) {
         logDebug('Processing Variations',  processedImage.variations.map(v => ({
           name: v.name,
           image: v.url
         })));
       }
-      logDebug('Final Result', [ processedImage.final]);
+      logDebug('Final Result', [processedImage.final]);
 
       onImageCaptured(processedImage.final);
 
@@ -281,7 +284,9 @@ export function SmartCamera({ onImageCaptured }) {
                       ))}
                     </div>
                   ) : (
-                    Array.isArray(log.data) && log.data.some(url => url.startsWith('blob:')) ? (
+                    Array.isArray(log.data) && log.data.some(item => 
+                      typeof item === 'string' && (item.startsWith('blob:') || item.startsWith('http'))
+                    ) ? (
                       <div className="flex flex-wrap gap-2 mt-1">
                         {log.data.map((url, imgIndex) => (
                           <img 
@@ -293,9 +298,29 @@ export function SmartCamera({ onImageCaptured }) {
                         ))}
                       </div>
                     ) : (
-                      <pre className="overflow-auto max-h-40 whitespace-pre-wrap">
-                        {JSON.stringify(log.data, null, 2)}
-                      </pre>
+                      log.message === 'Quality Checks' ? (
+                        <div className="space-y-2 mt-1">
+                          <div>
+                            <span className="font-medium">Brightness: </span>
+                            {log.data[1].brightnessScore.toFixed(3)} 
+                            ({log.data[1].isGood ? 'Good' : 'Poor'})
+                          </div>
+                          <div>
+                            <span className="font-medium">Sharpness: </span>
+                            {log.data[0].sharpnessScore.toFixed(3)}
+                            ({log.data[0].isSharp ? 'Good' : 'Poor'})
+                          </div>
+                          <div>
+                            <span className="font-medium">Motion Blur: </span>
+                            {log.data[2].blurScore.toFixed(3)}
+                            ({log.data[2].isNotBlurred ? 'Good' : 'Poor'})
+                          </div>
+                        </div>
+                      ) : (
+                        <pre className="overflow-auto max-h-40 whitespace-pre-wrap">
+                          {JSON.stringify(log.data, null, 2)}
+                        </pre>
+                      )
                     )
                   )}
                 </div>
