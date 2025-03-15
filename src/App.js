@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import ImageUpload from './components/ImageUpload';
 import AppointmentList from './components/AppointmentList';
 import CalendarExport from './components/CalendarExport';
 import { SmartCamera } from './components/SmartCamera';  // Use named import
 import { processOCR } from './services/OCRService';
-import { processOCRImages } from './utils/textProcessing';
 
 function App() {
   const [extractedText, setExtractedText] = useState('');
