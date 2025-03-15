@@ -40,7 +40,26 @@ function applySimpleThreshold(data, threshold) {
   }
 }
 
-export async function processImage(imageUrl, brightness) {
+function applyVignetteCorrection(data, width, height, centerStrength) {
+  const centerX = width / 2;
+  const centerY = height / 2;
+  const maxDistance = Math.sqrt(centerX * centerX + centerY * centerY);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * 4;
+      const distance = Math.sqrt(Math.pow(x - centerX, 2) + Math.pow(y - centerY, 2));
+      
+      const factor = 1 + Math.pow (distance / maxDistance, 0.5) * centerStrength;
+      
+      for (let c = 0; c < 3; c++) {
+        data[i + c] = Math.min(255, data[i + c] * factor);
+      }
+    }
+  }
+}
+
+export async function processImage(imageUrl, brightness, torchEnabled) {
   try {
     console.log('Starting image processing...');
     const blob = await fetch(imageUrl).then(r => r.blob());
@@ -83,6 +102,15 @@ export async function processImage(imageUrl, brightness) {
         sharpness: 1.6,
         threshold: 130,
         gamma: 1.1
+      },
+      {
+        name: 'flashCorrection',
+        contrast: 1.3,
+        brightness: 0.95,
+        sharpness: 1.8,
+        threshold: 150,
+        gamma: 1.5,
+        vignetteStrength: 1.2
       }
     ];
 
@@ -96,6 +124,10 @@ export async function processImage(imageUrl, brightness) {
 
     if (brightness.darkRatio < 0.08 && brightness.brightRatio < 0.08) {
       variations = variations.filter(v => !['lowLight', 'highLight'].includes(v.name));
+    }
+
+    if (!torchEnabled) {
+      variations = variations.filter(v => v.name !== 'flashCorrection')
     }
 
 
@@ -115,6 +147,10 @@ export async function processImage(imageUrl, brightness) {
         
         // Single getImageData call
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+        if (variation.name == 'flashCorrection') {
+          applyVignetteCorrection(imageData.data, canvas.width, canvas.height, variation.vignetteStrength);
+        }
         applySharpness(imageData.data, canvas.width, canvas.height, variation.sharpness);
         if (variation.gamma) {
           applyGamma(imageData.data, variation.gamma);
