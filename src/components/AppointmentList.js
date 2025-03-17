@@ -4,13 +4,68 @@ import { dictionaries } from '../data/dictionaries';
 function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   const [parsedAppointments, setParsedAppointments] = useState([]);
 
-  const parseDateTime = (dateStr, timeStr) => {
-    const [day, month, year] = dateStr.split('.');
-    const [hours, minutes] = timeStr.split(':');
-    return new Date(year, month - 1, day, hours, minutes);
+  // Clean description from common OCR artifacts and gibberish
+  const cleanupDescription = (text) => {
+    // Remove strings that look like noise
+    const cleanText = text
+      // Remove sequences with lots of special characters
+      .replace(/[\\|/_(){}<>[\]]+/g, '')
+      // Remove single letters followed by punctuation
+      .replace(/\b[A-Za-z]\s*[.,;]/g, '')
+      // Remove random numbers and special characters
+      .replace(/\d+[*&^%$#@!]+/g, '')
+      // Remove standalone special characters
+      .replace(/\s+[*&^%$#@!]+\s+/g, ' ')
+      // Clean up multiple spaces
+      .replace(/\s+/g, ' ')
+      .trim();
+
+    return cleanText;
   };
 
   const parseAppointments = (text) => {
+    // Add this new function to process description
+    const processAppointmentDescription = (appointment) => {
+      const description = appointment.description;
+      
+      // Pattern for names like "C. Jordi" or "M. Alicioglu"
+      const namePattern = /[A-Z]\.\s+[A-Z][a-zäöüß]+/g;
+      const foundNames = description.match(namePattern) || [];
+      
+      const words = description.split(' ');
+
+      // Find names in the description by matching the dictionary
+      const organizersDict = dictionaries.find(dict => dict.type === 'organizers');
+      const organizersDictMatches = words.filter(word => {
+        return organizersDict.dict.includes(word) && word.length > 1;
+      });
+
+      // Filter out dictionary matches that are already included in pattern matches
+      const uniqueOrganizerMatches = organizersDictMatches.filter(surname => 
+        !foundNames.some(fullName => fullName.endsWith(surname))
+      );
+
+      // Set the organizers (preferring pattern matches)
+      appointment.organizers = [...foundNames, ...uniqueOrganizerMatches];
+
+      // Find location from dictionary
+      const locationsDict = dictionaries.find(dict => dict.type === 'locations');
+      const locationMatches = words.filter(word => {
+        return locationsDict.dict.includes(word) && word.length > 1;
+      });
+      if (locationMatches.length > 0) {
+        appointment.location = locationMatches.join(' ');
+      }
+
+      // Clean up description
+      let cleanDescription = appointment.description;
+      [...appointment.organizers, ...(appointment.location ? appointment.location.split(' ') : [])]
+        .forEach(term => {
+          cleanDescription = cleanDescription.replace(term, '');
+        });
+
+      appointment.description = cleanDescription.replace(/\s+/g, ' ').trim();
+    };
     const appointments = [];
     let currentDate = null;
     let currentAppointment = null;
@@ -30,9 +85,11 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
       const timeMatch = line.match(/.*?(\d{1,2}[:\.]\d{2})\s+(\d{1,2}[:\.]\d{2})/);
       if (timeMatch && currentDate) {
         if (currentAppointment) {
+          processAppointmentDescription(currentAppointment);
           appointments.push(currentAppointment);
         }
 
+        // Create new appointment
         const startTime = timeMatch[1].replace('.', ':');
         const endTime = timeMatch[2].replace('.', ':');
         
@@ -48,7 +105,9 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
         currentAppointment = {
           startDate,
           endDate,
-          description: line.slice(line.indexOf(timeMatch[0]) + timeMatch[0].length).trim()
+          description: cleanupDescription(line.slice(line.indexOf(timeMatch[0]) + timeMatch[0].length).trim()),
+          organizers: [],
+          location: null
         };
       } else if (currentAppointment && !dateMatch && !timeMatch) {
         currentAppointment.description += ' ' + line;
@@ -56,6 +115,7 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
     });
 
     if (currentAppointment) {
+      processAppointmentDescription(currentAppointment);
       appointments.push(currentAppointment);
     }
     
@@ -97,6 +157,23 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
                 <p className="text-gray-700">
                   {appointment.description}
                 </p>
+                {appointment.organizers.length > 0 && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    <p>{appointment.organizers.join(', ')}</p>
+                  </div>
+                )}
+                {appointment.location && (
+                  <div className="flex items-center gap-2 text-sm text-gray-600">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </svg>
+                    <p>{appointment.location}</p>
+                  </div>
+                )}
               </div>
             </li>
           ))}
