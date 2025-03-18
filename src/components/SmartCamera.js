@@ -7,15 +7,9 @@ export function SmartCamera({ onImageCaptured }) {
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [captureProgress, setCaptureProgress] = useState(0);
-  const [debugLog, setDebugLog] = useState([]);
   const [processingPhase, setProcessingPhase] = useState('');
   const [torchEnabled, setTorchEnabled] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
-
-  const logDebug = (message, data) => {
-    console.log(message, data);
-    setDebugLog(prev => [...prev, { message, data, timestamp: new Date().toISOString() }]);
-  };
 
   const startCamera = async () => {
     try {
@@ -100,7 +94,7 @@ export function SmartCamera({ onImageCaptured }) {
         }
 
         setProcessingPhase(`Quality issues: ${qualityIssues.join(', ')}`);
-        setIsProcessing(true);  // Keep processing state true to show message
+        setIsProcessing(true); 
 
         return {
           success: false,
@@ -110,16 +104,6 @@ export function SmartCamera({ onImageCaptured }) {
 
       setProcessingPhase('Processing image...');
       const processedImage = await processImage(imageUrl, brightness, torchEnabled);
-
-      logDebug('Original Image', [imageUrl]);
-      logDebug('Quality Checks', qualityChecks);
-      if ( processedImage.variations &&  processedImage.variations.length > 0) {
-        logDebug('Processing Variations',  processedImage.variations.map(v => ({
-          name: v.name,
-          image: v.url
-        })));
-      }
-      logDebug('Final Result', [processedImage.final]);
 
       onImageCaptured(processedImage.final);
 
@@ -259,75 +243,6 @@ export function SmartCamera({ onImageCaptured }) {
           </button>
         )}
       </div>
-
-      {/* Debug sections */}
-
-      {/* Update the debug sections */}
-      {debugLog.length > 0 && (
-          <div className="w-full max-w-md mt-4 p-2 bg-gray-100 rounded">
-            <h3 className="text-sm font-medium mb-2">Debug Log:</h3>
-            <div className="space-y-4">
-              {debugLog.map((log, index) => (
-                <div key={index} className="text-xs">
-                  <div className="font-medium">{log.message}</div>
-                  {log.message === 'Processing Variations' ? (
-                    <div className="grid grid-cols-2 gap-2 mt-2">
-                      {log.data.map((variation, vIndex) => (
-                        <div key={vIndex} className="flex flex-col items-center">
-                          <div className="text-xs font-medium mb-1">{variation.name}</div>
-                          <img 
-                            src={variation.image}
-                            alt={`${variation.name} variation`}
-                            className="max-w-full border rounded"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    Array.isArray(log.data) && log.data.some(item => 
-                      typeof item === 'string' && (item.startsWith('blob:') || item.startsWith('http'))
-                    ) ? (
-                      <div className="flex flex-wrap gap-2 mt-1">
-                        {log.data.map((url, imgIndex) => (
-                          <img 
-                            key={imgIndex}
-                            src={url}
-                            alt={`Debug image ${imgIndex + 1}`}
-                            className="max-w-[200px] border rounded"
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      log.message === 'Quality Checks' ? (
-                        <div className="space-y-2 mt-1">
-                          <div>
-                            <span className="font-medium">Brightness: </span>
-                            {log.data[1].brightnessScore.toFixed(3)} 
-                            ({log.data[1].isGood ? 'Good' : 'Poor'})
-                          </div>
-                          <div>
-                            <span className="font-medium">Sharpness: </span>
-                            {log.data[0].sharpnessScore.toFixed(3)}
-                            ({log.data[0].isSharp ? 'Good' : 'Poor'})
-                          </div>
-                          <div>
-                            <span className="font-medium">Motion Blur: </span>
-                            {log.data[2].blurScore.toFixed(3)}
-                            ({log.data[2].isNotBlurred ? 'Good' : 'Poor'})
-                          </div>
-                        </div>
-                      ) : (
-                        <pre className="overflow-auto max-h-40 whitespace-pre-wrap">
-                          {JSON.stringify(log.data, null, 2)}
-                        </pre>
-                      )
-                    )
-                  )}
-                </div>
-              ))}
-            </div>
-          </div>
-      )}
     </div>
   );
 }

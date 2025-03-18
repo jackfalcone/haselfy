@@ -15,8 +15,7 @@ export const processOCR = async (imageData) => {
         tessjs_create_tsv: '0'
       }
     );
-    console.log('--- OCR before processing ---');
-    console.log(text);
+    
     const processedText = processText(text);
 
     return {

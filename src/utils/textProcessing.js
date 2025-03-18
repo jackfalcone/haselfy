@@ -109,9 +109,3 @@ export function processText(text) {
 
   return processedLines.join('\n');
 }
-
-export function extractAppointments(text) {
-  const processedText = processText(text);
-  // We'll implement this later when working on AppointmentList
-  return processedText;
-}

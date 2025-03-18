@@ -8,7 +8,7 @@ function applySharpness(data, width, height, amount) {
   for (let y = 1; y < height - 1; y += 2) {
     for (let x = 1; x < width - 1; x += 2) {
       const i = (y * width + x) * 4;
-      // Process all channels at once
+
       for (let c = 0; c < 3; c++) {
         const center = temp[i + c];
         const top = temp[i - width * 4 + c];
@@ -33,7 +33,6 @@ function applyGamma(data, gamma) {
 
 function applySimpleThreshold(data, threshold) {
   for (let i = 0; i < data.length; i += 4) {
-    // Convert to grayscale using standard weights
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     const value = gray > threshold ? 255 : 0;
     data[i] = data[i + 1] = data[i + 2] = value;
@@ -61,7 +60,6 @@ function applyVignetteCorrection(data, width, height, centerStrength) {
 
 export async function processImage(imageUrl, brightness, torchEnabled) {
   try {
-    console.log('Starting image processing...');
     const blob = await fetch(imageUrl).then(r => r.blob());
     const img = await createImageBitmap(blob);
 
@@ -130,7 +128,6 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
     const debugImages = [];
     const processedVariations = await Promise.all(
       variations.map(async (variation, index) => {
-        console.log(`Processing ${variation.name}...`);
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d', { willReadFrequently: true });
         canvas.width = img.width;
@@ -141,7 +138,6 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
         ctx.filter = `contrast(${variation.contrast}) brightness(${variation.brightness}) saturate(0)`;
         ctx.drawImage(img, 0, 0);
         
-        // Single getImageData call
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
         if (variation.name == 'flashCorrection') {
@@ -153,7 +149,6 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
         }
         applySimpleThreshold(imageData.data, variation.threshold);
         
-        // Single putImageData call
         ctx.putImageData(imageData, 0, 0);
 
         const debugBlog = await new Promise(resolve =>

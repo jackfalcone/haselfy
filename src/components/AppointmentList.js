@@ -136,7 +136,6 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
     if (extractedText) {
       const appointments = parseAppointments(extractedText.text);
       setParsedAppointments(appointments);
-      console.log('Parsed Appointments:', appointments);
       onAppointmentsProcessed(appointments);
     }
   }, [extractedText, onAppointmentsProcessed]);
@@ -144,15 +143,6 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   return (
     <div className="mt-6">
       <h2 className="text-xl font-semibold mb-4">Detected Appointments</h2>
-      
-      {extractedText && (
-        <div className="mb-6 p-4 bg-gray-50 rounded-lg">
-          <pre className="text-xs overflow-auto max-h-60 whitespace-pre-wrap bg-white p-3 rounded border">
-            {extractedText.text}
-          </pre>
-        </div>
-      )}
-
       {parsedAppointments.length > 0 ? (
         <ul className="space-y-2">
           {parsedAppointments.map((appointment, index) => (
