@@ -12,7 +12,7 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
       .replace(/[*&^%$#@!]+/g, ' ')
       .replace(/\d+[*&^%$#@!]+/g, ' ')
       // Remove everything after common OCR artifact patterns
-      .replace(/\s+[|\\]+.*$/, '')
+      .replace(/\s+[|\\]+[^\n]*/, '')  // Changed to preserve newlines
       .replace(/\s+sn\s+.*$/, '')
       // Clean up parentheses content with gibberish
       .replace(/\([^)]*?[\\|/_*&^%$#@!]+[^)]*?\)/g, ' ')

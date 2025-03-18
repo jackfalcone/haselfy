@@ -38,7 +38,8 @@ function cleanText(text) {
     .replace(/(?<=\d)'(?=\s|$)/g, '')    // Remove single quotes after numbers
     .replace(/(?<=\d)°(?=\s|$)/g, '')    // Remove degree symbols after numbers
     .replace(/\s+([.,])/g, '$1')         // Fix spacing around punctuation
-    .replace(/\s*\|\s*/g, ' | ')         // Normalize pipe spacing
+    .replace(/\s*\|\s*\n/g, '\n')        // Replace pipe at end of line with newline
+    .replace(/\s*\|\s*/g, ' | ')         // Normalize remaining pipe spacing
     .replace(/[^\x20-\x7E\äöüÄÖÜß\n()]/g, '') // Remove non-printable chars but keep parentheses
     .replace(/^m TT.*\n/, '')                 // Remove the ID line
     .replace(/^[A-Z]\s+(?=Fr\.|Do\.)/, '')   // Remove single letters before weekdays
