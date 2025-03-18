@@ -51,33 +51,24 @@ function cleanText(text) {
     .trim();
 }
 
-function isGeneralInfoLine(line) {
-  const generalInfoKeywords = [
+function isGeneralInfo(line) {
+  const mainHeaders = [
     'Medikamentenabgabe',
     'Essenszeiten',
-    'Pausen',
-    'Frühstück',
-    'Brunch',
-    'Mittagessen Mo-Fr',
-    'Abendessen Mo-So',
-    'NA-Meeting',
-    'Mo - Fr Alle',
-    'Mittagspause',
-    'Gruppe 1',  // Add specific group headers
-    'Gruppe 2',
-    'Gruppe 3'
   ];
-  
-  // Check for exact matches or group number patterns
-  return generalInfoKeywords.some(keyword => line.includes(keyword)) ||
-         line.match(/^Gruppe\s+\d/) ||  // Match group headers specifically
-         line.match(/^\d{2}:\d{2}\s*-\s*\d{2}:\d{2}/) ||
-         line.match(/\|\s*\d{2}:\d{2}/) ||
-         line.match(/^[A-Z][a-z]\s+\d{2}:\d{2}\s*-/);
+
+  return line.split(' ').some(word => {
+    return mainHeaders.some(header => {
+      const similarity = stringSimilarity.compareTwoStrings(word.toLowerCase(), header.toLowerCase());
+      return similarity > 0.8;
+    })
+  })
 }
 
 export function processText(text) {
   const cleanedText = cleanText(text);
+  
+  // Split into lines and do initial cleanup
   const lines = cleanedText.split('\n').map(line => 
     line.trim()
       .replace(/[„""]/g, '"')          
@@ -85,31 +76,35 @@ export function processText(text) {
       .replace(/[−–]/g, '-')           
       .replace(/\s+/g, ' ')            
       .replace(/^\W+|\W+$/g, '')       
-  ).filter(line => {
-    return line.length > 0 && 
-           !line.match(/^(BED|klinik|Patientenplan|FB|TT|EBE|We,|e m AA)/i) &&
-           !line.match(/^[A-Z]{1,2}$/) &&
-           !isGeneralInfoLine(line);
-  });
+  );
 
-  // Process each line
-  const processedLines = lines.map(line => {
-    // Skip header/footer lines
-    if (line.match(/^(BED|klinik|Patientenplan|FB|TT|EBE)$/i)) {
-      return null;
-    }
+  // Find where the general info section starts
+  const generalInfoIndex = lines.findIndex(line => 
+    line.length > 0 && isGeneralInfo(line)
+  );
 
-    // In processText:
-    // Format times consistently (only match times at start of line or after space)
-    line = line.replace(/(?:^|\s)(\d{1,2})[:.](\d{2})(?!\.\d{4})/g, (match, h, m) => 
-      match.startsWith(' ') ? ` ${h.padStart(2, '0')}:${m}` : `${h.padStart(2, '0')}:${m}`
-    );
+  // Get only the appointment section
+  const appointmentLines = generalInfoIndex !== -1 
+    ? lines.slice(0, generalInfoIndex)
+    : lines;
 
-    // Correct common OCR mistakes using dictionaries
-    const words = line.split(' ').map(word => findBestMatch(word, dictionaries));
+  // Filter and process appointment lines
+  const processedLines = appointmentLines
+    .filter(line => 
+      line.length > 0 && 
+      !line.match(/^(BED|klinik|Patientenplan|FB|TT|EBE|We,|e m AA)/i) &&
+      !line.match(/^[A-Z]{1,2}$/)
+    )
+    .map(line => {
+      // Format times consistently
+      line = line.replace(/(?:^|\s)(\d{1,2})[:.](\d{2})(?!\.\d{4})/g, (match, h, m) => 
+        match.startsWith(' ') ? ` ${h.padStart(2, '0')}:${m}` : `${h.padStart(2, '0')}:${m}`
+      );
 
-    return words.join(' ');
-  }).filter(line => line !== null);
+      // Correct common OCR mistakes using dictionaries
+      const words = line.split(' ').map(word => findBestMatch(word, dictionaries));
+      return words.join(' ');
+    });
 
   return processedLines.join('\n');
 }

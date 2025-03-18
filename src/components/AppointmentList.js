@@ -6,21 +6,31 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
 
   // Clean description from common OCR artifacts and gibberish
   const cleanupDescription = (text) => {
-    // Remove strings that look like noise
-    const cleanText = text
-      // Remove sequences with lots of special characters
-      .replace(/[\\|/_(){}<>[\]]+/g, '')
-      // Remove single letters followed by punctuation
-      .replace(/\b[A-Za-z]\s*[.,;]/g, '')
-      // Remove random numbers and special characters
-      .replace(/\d+[*&^%$#@!]+/g, '')
+    return text
+      // First, clean up obvious OCR artifacts and special characters
+      .replace(/[\\|/_(){}<>[\]]+/g, ' ')
+      .replace(/[*&^%$#@!]+/g, ' ')
+      .replace(/\d+[*&^%$#@!]+/g, ' ')
+      // Remove everything after common OCR artifact patterns
+      .replace(/\s+[|\\]+.*$/, '')
+      .replace(/\s+sn\s+.*$/, '')
+      // Clean up parentheses content with gibberish
+      .replace(/\([^)]*?[\\|/_*&^%$#@!]+[^)]*?\)/g, ' ')
       // Remove standalone special characters
-      .replace(/\s+[*&^%$#@!]+\s+/g, ' ')
+      .replace(/\s+[.,;]\s+/g, ' ')
+      // Keep words with letters and numbers, remove gibberish
+      .split(' ')
+      .filter(word => {
+        // Keep words with mostly valid characters
+        const validChars = word.match(/[a-zA-ZäöüßÄÖÜ0-9]/g) || [];
+        const hasEnoughValidChars = validChars.length / word.length > 0.7;
+        // Keep words that are either numbers or have enough valid characters
+        return /^\d+$/.test(word) || (word.length > 1 && hasEnoughValidChars);
+      })
+      .join(' ')
       // Clean up multiple spaces
       .replace(/\s+/g, ' ')
       .trim();
-
-    return cleanText;
   };
 
   const parseAppointments = (text) => {
