@@ -4,7 +4,7 @@ import ical from 'ical-generator';
 function CalendarExport({ appointments }) {
   const handleExport = () => {
     const calendar = ical({
-      name: 'Klinik im hasel Appointments',
+      name: 'Klinik im Hasel Termine',
       timezone: 'Europe/Berlin'
     });
 
@@ -13,8 +13,10 @@ function CalendarExport({ appointments }) {
         start: appointment.startDate,
         end: appointment.endDate,
         summary: appointment.description,
-        location: appointment.location,
-        description: appointment.rawText
+        location: appointment.location || undefined,
+        description: appointment.organizers.length > 0 
+          ? `With: ${appointment.organizers.join(', ')}` 
+          : undefined
       });
     });
 
@@ -23,7 +25,7 @@ function CalendarExport({ appointments }) {
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `appointments-${new Date().toISOString().split('T')[0]}.ics`;
+    a.download = `termine-hasel-${new Date().toISOString().split('T')[0]}.ics`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);

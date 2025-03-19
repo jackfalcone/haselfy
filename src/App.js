@@ -6,6 +6,7 @@ import { processOCR } from './services/OCRService';
 
 function App() {
   const [extractedText, setExtractedText] = useState('');
+  const [processedAppointments, setProcessedAppointments] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
 
   const handleImageCaptured = async (imageData) => {
@@ -28,12 +29,17 @@ function App() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
         </div>
       ) : (
-        <AppointmentList 
-          extractedText={extractedText}
-          onAppointmentsProcessed={(appointments) => {
-            // Handle processed appointments
-          }}
-        />
+        <>
+          <AppointmentList 
+            extractedText={extractedText}
+            onAppointmentsProcessed={(appointments) => {
+              setProcessedAppointments(appointments);
+            }}
+          />
+          {processedAppointments.length > 0 && (
+            <CalendarExport appointments={processedAppointments} />
+          )}
+        </>
       )}
     </div>
   );
