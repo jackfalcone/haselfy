@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import AppointmentList from './components/AppointmentList';
 import CalendarExport from './components/CalendarExport';
 import { SmartCamera } from './components/SmartCamera';
@@ -8,6 +8,15 @@ function App() {
   const [extractedText, setExtractedText] = useState('');
   const [processedAppointments, setProcessedAppointments] = useState([]);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    if (processedAppointments.length > 0) {
+      const appointmentList = document.getElementById('appointment-list');
+      if (appointmentList) {
+        appointmentList.scrollIntoView({ behavior: 'smooth' });
+      }
+    }
+  }, [processedAppointments])
 
   const handleImageCaptured = async (imageData) => {
     setIsProcessing(true);
@@ -29,7 +38,7 @@ function App() {
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
         </div>
       ) : (
-        <>
+        <div id="appointment-list">
           <AppointmentList 
             extractedText={extractedText}
             onAppointmentsProcessed={(appointments) => {
@@ -39,7 +48,7 @@ function App() {
           {processedAppointments.length > 0 && (
             <CalendarExport appointments={processedAppointments} />
           )}
-        </>
+        </div>
       )}
     </div>
   );
