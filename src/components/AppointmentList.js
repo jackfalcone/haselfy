@@ -143,7 +143,7 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
 
   return (
     <div className="mt-7 max-w-md mx-auto">
-      <h2 className="text-xl font-semibold mb-4">Detected Appointments</h2>
+      <h2 className="text-xl font-semibold mb-4 text-center">Detected Appointments</h2>
       {parsedAppointments.length > 0 ? (
         <ul className="space-y-4">
           {parsedAppointments.map((appointment, index) => (

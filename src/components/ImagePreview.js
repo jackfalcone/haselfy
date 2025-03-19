@@ -16,8 +16,8 @@ export function ImagePreview({
       />
       
       {isProcessing && (
-        <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
-          <div className="text-white text-center p-4">
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="text-white text-center p-4 bg-black bg-opacity-50 rounded-lg">
             <div className="mb-2 text-lg pointer-events-none">
               {processingPhase}
             </div>

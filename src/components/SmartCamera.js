@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import { processImage } from '../utils/imageProcessing';
 import { isImageSharp, isBrightnessGood, isMotionBlurLow } from '../utils/imageQuality';
 import InputSelection from './InputSelection';
@@ -7,7 +7,7 @@ import ImagePreview from './ImagePreview';
 import QualityCheck from './QualityCheck';
 import QualityGauges from './QualityGauges';
 
-export function SmartCamera({ onImageCaptured }) {
+export function SmartCamera({ onImageCaptured, OcrIsProcessing }) {
   const videoRef = useRef(null);
   const [isStreaming, setIsStreaming] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -18,6 +18,13 @@ export function SmartCamera({ onImageCaptured }) {
   const [previewImage, setPreviewImage] = useState(null);
   const [qualityIssues, setQualityIssues] = useState([]);
   const [qualityScores, setQualityScores] = useState({});
+  
+  useEffect(() => {
+    setIsProcessing(OcrIsProcessing);
+    if (OcrIsProcessing) {
+      setProcessingPhase('Extracting text');
+    }
+  }, [OcrIsProcessing])
 
   const startCamera = async () => {
     try {
@@ -150,7 +157,7 @@ export function SmartCamera({ onImageCaptured }) {
       const result = await handleImage(blob);
 
       if (!result.success) {
-        setProcessingPhase(`Please try again. ${result.qualityIssues.join(', ')}`);
+        setProcessingPhase(`${result.qualityIssues.join(', ')}`);
         setImageQuality(false);
       }
     }, 'image/png');
@@ -161,7 +168,7 @@ export function SmartCamera({ onImageCaptured }) {
     if (file) {
       const result = await handleImage(file);
       if (!result.success) {
-        setProcessingPhase(`Please try again. ${result.qualityIssues.join(', ')}`);
+        setProcessingPhase(`${result.qualityIssues.join(', ')}`);
         setImageQuality(false);
       }
     };
