@@ -138,7 +138,8 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
       setParsedAppointments(appointments);
       onAppointmentsProcessed(appointments);
     }
-  }, [extractedText, onAppointmentsProcessed]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [extractedText]);
 
   return (
     <div className="mt-6">
