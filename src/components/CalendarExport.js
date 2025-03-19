@@ -33,7 +33,7 @@ function CalendarExport({ appointments }) {
   };
 
   return (
-    <div className="mt-6">
+    <div className="mt-6 max-w-md mx-auto">
       <button
         onClick={handleExport}
         disabled={!appointments.length}

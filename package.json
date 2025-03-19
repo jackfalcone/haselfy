@@ -12,6 +12,7 @@
     "ical-generator": "^8.1.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-gauge-component": "^1.2.64",
     "react-scripts": "5.0.1",
     "string-similarity": "^4.0.4",
     "tesseract.js": "^4.1.4",

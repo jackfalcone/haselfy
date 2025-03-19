@@ -142,18 +142,18 @@ function AppointmentList({ extractedText, onAppointmentsProcessed }) {
   }, [extractedText]);
 
   return (
-    <div className="mt-6">
+    <div className="mt-7 max-w-md mx-auto">
       <h2 className="text-xl font-semibold mb-4">Detected Appointments</h2>
       {parsedAppointments.length > 0 ? (
-        <ul className="space-y-2">
+        <ul className="space-y-4">
           {parsedAppointments.map((appointment, index) => (
             <li 
               key={index}
-              className="p-4 bg-gray-50 rounded-lg"
+              className="p-4 bg-gray-50 shadow-md rounded-lg"
             >
               <div className="flex flex-col gap-2">
                 <p className="font-medium">
-                  {appointment.startDate.toLocaleTimeString()} - {appointment.endDate.toLocaleTimeString()}
+                  {appointment.startDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} - {appointment.endDate.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </p>
                 <p className="text-gray-700">
                   {appointment.description}

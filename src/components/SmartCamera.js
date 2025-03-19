@@ -5,6 +5,7 @@ import InputSelection from './InputSelection';
 import CameraView from './CameraView';
 import ImagePreview from './ImagePreview';
 import QualityCheck from './QualityCheck';
+import QualityGauges from './QualityGauges';
 
 export function SmartCamera({ onImageCaptured }) {
   const videoRef = useRef(null);
@@ -16,6 +17,7 @@ export function SmartCamera({ onImageCaptured }) {
   const [imageQuality, setImageQuality] = useState(true);
   const [previewImage, setPreviewImage] = useState(null);
   const [qualityIssues, setQualityIssues] = useState([]);
+  const [qualityScores, setQualityScores] = useState({});
 
   const startCamera = async () => {
     try {
@@ -82,6 +84,14 @@ export function SmartCamera({ onImageCaptured }) {
 
       const [sharpness, brightness, motionBlur] = qualityChecks;
 
+      const qualityScores = {
+        sharpness: sharpness.sharpnessScore,
+        brightnessScore: brightness.brightnessScore,
+        blurScore: motionBlur.blurScore
+      };
+
+      setQualityScores(qualityScores);
+
       if (!sharpness.isSharp || !brightness.isGood || !motionBlur.isNotBlurred) {
 
         const qualityIssues = [];
@@ -102,7 +112,7 @@ export function SmartCamera({ onImageCaptured }) {
 
         return {
           success: false,
-          qualityIssues
+          qualityIssues,
         }
       };
 
@@ -117,6 +127,7 @@ export function SmartCamera({ onImageCaptured }) {
       }
 
       setProcessingPhase('');
+      setIsProcessing(false);
 
       return { success: true };
     } catch (error) {
@@ -187,19 +198,26 @@ export function SmartCamera({ onImageCaptured }) {
       )}
 
       {previewImage && (
-        <ImagePreview
-          imageUrl={previewImage}
-          isProcessing={isProcessing}
-          processingPhase={processingPhase}
-          imageQuality={imageQuality}
-          onTryAgain={handleTryAgain}
-        />
+        <>
+          <ImagePreview
+            imageUrl={previewImage}
+            isProcessing={isProcessing}
+            processingPhase={processingPhase}
+            imageQuality={imageQuality}
+            onTryAgain={handleTryAgain}
+          />
+          {Object.keys(qualityScores).length > 0 && (
+            <QualityGauges qualityScores={qualityScores} />
+          )}
+        </>
       )}
 
       {!imageQuality && (
         <QualityCheck
           qualityIssues={qualityIssues}
+          qualityScores={qualityScores}
           onTryAgain={handleTryAgain}
+          isQualityGood={imageQuality}
         />
       )}
     </div>
