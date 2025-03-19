@@ -125,7 +125,6 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
       variations = variations.filter(v => v.name !== 'flashCorrection')
     }
 
-    const debugImages = [];
     const processedVariations = await Promise.all(
       variations.map(async (variation, index) => {
         const canvas = document.createElement('canvas');
@@ -150,13 +149,6 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
         applySimpleThreshold(imageData.data, variation.threshold);
         
         ctx.putImageData(imageData, 0, 0);
-
-        const debugBlog = await new Promise(resolve =>
-          canvas.toBlob(resolve, 'image/png', 1.0));
-        debugImages.push({
-          name: variation.name,
-          url: URL.createObjectURL(debugBlog)
-        })
 
         return imageData;
       })
@@ -196,14 +188,12 @@ export async function processImage(imageUrl, brightness, torchEnabled) {
 
     return {
       final: URL.createObjectURL(compressedFile),
-      variations: debugImages
     };
     
   } catch (error) {
     console.error('Image processing failed:', error);
     return {
       final: imageUrl,
-      variations: []
     };
   }
 }
